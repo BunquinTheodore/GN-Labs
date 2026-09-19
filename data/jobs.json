@@ -1,0 +1,41 @@
+[
+  {
+    "slug": "example-ai-integration-engineer",
+    "title": "AI Integration Engineer",
+    "company": "Example Company (placeholder)",
+    "location": "Remote",
+    "remote": true,
+    "employmentType": "Contract",
+    "postedAt": "2026-09-01",
+    "summary": "TODO: placeholder example listing only. Not a real, open role. Replace with confirmed job data before launch.",
+    "description": "TODO: this is a TODO-marked example listing used to design the job board UI. No real jobs exist on GN Labs yet. This entry, and the others in this file, must be replaced or removed before the job board goes live with real postings.",
+    "tags": ["example", "placeholder", "ai", "integrations"],
+    "isExample": true
+  },
+  {
+    "slug": "example-automation-consultant",
+    "title": "Automation Consultant",
+    "company": "Example Company (placeholder)",
+    "location": "Metro Manila, PH",
+    "remote": false,
+    "employmentType": "Part-time",
+    "postedAt": "2026-09-05",
+    "summary": "TODO: placeholder example listing only. Not a real, open role. Replace with confirmed job data before launch.",
+    "description": "TODO: this is a TODO-marked example listing used to design the job board UI. No real jobs exist on GN Labs yet. This entry, and the others in this file, must be replaced or removed before the job board goes live with real postings.",
+    "tags": ["example", "placeholder", "automation", "consulting"],
+    "isExample": true
+  },
+  {
+    "slug": "example-junior-ml-ops",
+    "title": "Junior ML Ops",
+    "company": "Example Company (placeholder)",
+    "location": "Remote",
+    "remote": true,
+    "employmentType": "Full-time",
+    "postedAt": "2026-09-10",
+    "summary": "TODO: placeholder example listing only. Not a real, open role. Replace with confirmed job data before launch.",
+    "description": "TODO: this is a TODO-marked example listing used to design the job board UI. No real jobs exist on GN Labs yet. This entry, and the others in this file, must be replaced or removed before the job board goes live with real postings.",
+    "tags": ["example", "placeholder", "ml-ops"],
+    "isExample": true
+  }
+]
