@@ -473,6 +473,29 @@
     animation-delay: 1s;
   }
 
+  /* Keeps the real page content (nav links, etc.) out of the tab order
+     and unfocusable for as long as the opaque splash visually covers
+     it. `visibility: hidden` removes descendants from focus/tab order
+     without any JS, and is visually indistinguishable from "shown"
+     here because the fullscreen splash fully occludes the page for
+     this entire window anyway. Delay matches the splash's 1s hold +
+     0.7s fade (see .gn-splash above); the reduced-motion override
+     below shortens it to match that mode's much shorter hold. */
+  .gn-content-guard {
+    visibility: hidden;
+    animation: gn-content-reveal 1ms linear forwards;
+    animation-delay: 1.7s;
+  }
+
+  @keyframes gn-content-reveal {
+    from {
+      visibility: hidden;
+    }
+    to {
+      visibility: visible;
+    }
+  }
+
   .gn-splash-title {
     font-family: var(--font-display);
     font-weight: 800;
@@ -547,6 +570,14 @@
      near-instant fade (duration already forced to 0.001ms above)
      instead of forcing the full 1s hold plus theatrical animation. */
   .gn-splash {
+    animation-delay: 0.15s !important;
+  }
+
+  /* Match the content guard's reveal delay to the splash's shortened
+     0.15s hold (its animation-duration is already forced to 0.001ms
+     by the blanket rule above), so keyboard focus is unblocked as
+     soon as the splash actually finishes in this mode. */
+  .gn-content-guard {
     animation-delay: 0.15s !important;
   }
 }

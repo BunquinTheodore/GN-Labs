@@ -61,11 +61,22 @@ const CONSULTATIONS_COLLECTION = "labs_consultations";
 
 export async function getJobs(): Promise<Job[]> {
   try {
-    const snapshot = await adminDb()
-      .collection(JOBS_COLLECTION)
-      .orderBy("postedAt", "desc")
-      .get();
-    return snapshot.docs.map((doc) => doc.data() as Job);
+    // Sorted in memory rather than via Firestore's own `.orderBy("postedAt")`:
+    // orderBy silently drops any document missing that field from the
+    // result set entirely, and there's no admin UI yet guaranteeing every
+    // manually-inserted job document has it. Sorting here means a job
+    // without a valid postedAt still shows up (just sorted last), instead
+    // of vanishing with no error.
+    const snapshot = await adminDb().collection(JOBS_COLLECTION).get();
+    const jobs = snapshot.docs.map((doc) => doc.data() as Job);
+    return jobs.sort((a, b) => {
+      const aTime = Date.parse(a.postedAt);
+      const bTime = Date.parse(b.postedAt);
+      if (Number.isNaN(aTime) && Number.isNaN(bTime)) return 0;
+      if (Number.isNaN(aTime)) return 1;
+      if (Number.isNaN(bTime)) return -1;
+      return bTime - aTime;
+    });
   } catch (error) {
     // Missing collection / unreachable Firestore: fall back to an empty
     // data set instead of throwing, so pages can still render an empty

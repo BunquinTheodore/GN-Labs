@@ -43,7 +43,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           <span className="ambient-blob ambient-blob-amber" />
           <span className="ambient-grid" />
         </div>
-        <div className="flex min-h-full flex-col">
+        <div className="gn-content-guard flex min-h-full flex-col">
           <SiteNav />
           <main className="flex-1">{children}</main>
           <SiteFooter />

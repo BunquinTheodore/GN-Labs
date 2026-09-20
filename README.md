@@ -31,21 +31,32 @@ job listings.
 - **Icons:** `lucide-react`.
 - **Fonts:** `next/font/google` (self-hosted at build, not linked
   Google Fonts) — Geist for body text, Space Grotesk for display/headings.
-- **Backend/CMS/forms:** No CMS and no external backend/database. All
-  three forms (consultation, post-a-job, join-talent-list) post to local
-  Next.js Route Handlers under `app/api/`:
-  - `POST /api/consultation` validates input and only **logs** submission
+- **Backend/CMS/forms:** No CMS and no admin UI. All three forms
+  (consultation, post-a-job, join-talent-list) post to local Next.js Route
+  Handlers under `app/api/`, which persist through `lib/jobs.ts` /
+  `lib/firebase-admin.ts` to **Cloud Firestore** — this reuses GN Academy's
+  existing Firebase project (same project id / service account) but writes
+  to its own `labs_`-prefixed collections (`labs_jobs`, `labs_job_requests`,
+  `labs_talent`, `labs_consultations`) so GN Labs data can never collide
+  with GN Academy's own collections in that shared project. The admin SDK
+  (service account credentials, via `FIREBASE_ADMIN_PROJECT_ID` /
+  `FIREBASE_ADMIN_CLIENT_EMAIL` / `FIREBASE_ADMIN_PRIVATE_KEY` env vars)
+  bypasses Firestore security rules — there is no client-side Firestore
+  access from GN Labs.
+  - `POST /api/consultation` validates input, writes a
+    `labs_consultations` document, and logs non-sensitive submission
     metadata server-side (`app/api/consultation/route.ts`) — there is no
-    email, CRM, or calendar integration behind it yet.
+    email, CRM, or calendar integration behind it yet, but the submission
+    itself is durably stored in Firestore.
   - `POST /api/jobs/post` and `POST /api/jobs/join` validate input and
-    append JSON records to flat files (`data/job-requests.json`,
-    `data/talent.json`) via `lib/jobs.ts` using Node's `fs.promises`. This
-    only works on a persistent, writable Node process (e.g. `next dev` or
-    `next start` on a normal server/container) — it will silently fail to
-    persist on ephemeral/read-only serverless or edge runtimes, a
-    limitation the routes surface honestly (`success: false`) rather than
-    faking success.
-  - There is no authentication/accounts system and no database.
+    write documents to the `labs_job_requests` and `labs_talent`
+    collections respectively via `lib/jobs.ts`. If the Firestore write
+    throws (bad/missing credentials, Firestore unreachable, etc.), the
+    routes surface that honestly (`success: false`) rather than faking
+    success.
+  - There is no authentication/accounts system, and no admin UI yet for
+    moving a `labs_job_requests` entry into `labs_jobs` or reviewing
+    `labs_talent` signups — see "What's missing" below.
 
 ## 3. Structure
 
@@ -57,13 +68,13 @@ job listings.
 | `/about` | `app/about/page.tsx` | About page: mission blurb, team-photo placeholder slot, two "values" cards. |
 | `/services` | `app/services/page.tsx` | Services page: 3-step approach (Scope / Pilot / Rollout) plus an explicit "detailed service list: to be confirmed" placeholder card linking to `/consultation`. |
 | `/consultation` | `app/consultation/page.tsx` | Consultation booking form page (renders `ConsultationForm`). |
-| `/jobs` | `app/jobs/page.tsx` | Job listing page; reads `data/jobs.json` via `lib/jobs.ts`; shows an empty state if there are no jobs, and an "Example" badge/banner when listings are placeholders. |
+| `/jobs` | `app/jobs/page.tsx` | Job listing page; reads the `labs_jobs` Firestore collection via `lib/jobs.ts`; shows an empty state if there are no jobs, and an "Example" badge/banner when listings are placeholders. |
 | `/jobs/[slug]` | `app/jobs/[slug]/page.tsx` | Job detail page; 404s via `notFound()` for an unknown slug; statically generated slugs via `generateStaticParams`. |
 | `/jobs/post` | `app/jobs/post/page.tsx` | "Post a job" request form (renders `JobPostForm`); submissions require manual admin approval. |
 | `/jobs/join` | `app/jobs/join/page.tsx` | "Join the talent list" form (renders `TalentJoinForm`). |
-| `POST /api/consultation` | `app/api/consultation/route.ts` | Validates and logs a consultation request; no real integration. |
-| `POST /api/jobs/post` | `app/api/jobs/post/route.ts` | Validates and appends a pending job-post request to `data/job-requests.json`. |
-| `POST /api/jobs/join` | `app/api/jobs/join/route.ts` | Validates and appends a talent signup to `data/talent.json`. |
+| `POST /api/consultation` | `app/api/consultation/route.ts` | Validates and writes a `labs_consultations` Firestore document; no email/CRM/calendar integration yet. |
+| `POST /api/jobs/post` | `app/api/jobs/post/route.ts` | Validates and writes a pending job-post request document to the `labs_job_requests` collection. |
+| `POST /api/jobs/join` | `app/api/jobs/join/route.ts` | Validates and writes a talent signup document to the `labs_talent` collection. |
 
 ### Key directories
 
@@ -73,12 +84,21 @@ job listings.
   `job-post-form.tsx`, `talent-join-form.tsx`.
 - `components/ui/` — shadcn/ui primitives (badge, button, input, label,
   select, separator, textarea).
-- `lib/jobs.ts` — flat-file data access layer: `getJobs`, `getJobBySlug`,
-  `appendJobRequest`, `appendTalentSignup`; falls back to an empty array
-  and logs a warning if a JSON data file is missing/unreadable.
+- `lib/jobs.ts` — Firestore data access layer: `getJobs`, `getJobBySlug`,
+  `appendJobRequest`, `appendTalentSignup`, `appendConsultationRequest`;
+  `getJobs` sorts results in memory (rather than via Firestore's own
+  `.orderBy("postedAt")`) so a manually-inserted job document missing that
+  field still shows up instead of silently being dropped, and falls back
+  to an empty array with a logged warning if Firestore is unreachable.
+- `lib/firebase-admin.ts` — lazily-initialized Firebase Admin SDK app/
+  Firestore client, credentialed via `FIREBASE_ADMIN_PROJECT_ID` /
+  `FIREBASE_ADMIN_CLIENT_EMAIL` / `FIREBASE_ADMIN_PRIVATE_KEY`. Reuses GN
+  Academy's Firebase project; all GN Labs data lives in `labs_`-prefixed
+  collections in that same project.
 - `lib/utils.ts` — re-exports `cn` from the `cn` package.
-- `data/` — `jobs.json` (3 example listings), `talent.json` (`[]`),
-  `job-requests.json` (`[]`); these are the "database" for the job board.
+- Firestore collections (the "database" for the job board and
+  consultation form; there is no `data/` directory anymore) — `labs_jobs`,
+  `labs_job_requests`, `labs_talent`, `labs_consultations`.
 - `app/globals.css` — design tokens (`--brand-primary` = cyan,
   `--brand-secondary` = lime, `--brand-tertiary` = amber, shared with the
   GN family palette) and the glass material system.
@@ -97,25 +117,30 @@ job listings.
   - Listing page with populated vs. empty states.
   - Job detail page with static params generation and a 404 for unknown
     slugs.
-  - "Post a job" form that submits to a moderation queue
-    (`data/job-requests.json`, `status: "pending"`) rather than publishing
-    immediately — there is no live job to `data/jobs.json` publishing path.
-  - "Join the talent list" form that appends to `data/talent.json`.
-  - 3 clearly TODO-labeled example job listings, marked `isExample: true`
-    and shown with an "Example" badge in the UI, plus a page-level amber
-    notice when any listing is an example.
+  - "Post a job" form that submits to a moderation queue (a `labs_job_requests`
+    Firestore document, `status: "pending"`) rather than publishing
+    immediately — there is no admin UI or automated path from
+    `labs_job_requests` into `labs_jobs`; publishing a job today means
+    manually writing/copying a document into `labs_jobs` (e.g. via a
+    one-off script), not editing a file.
+  - "Join the talent list" form that writes a document to the
+    `labs_talent` Firestore collection.
+  - 3 clearly TODO-labeled example job listings (seeded directly in
+    `labs_jobs`), marked `isExample: true` and shown with an "Example"
+    badge in the UI, plus a page-level amber notice when any listing is an
+    example.
 - Responsive, accessible site nav (`components/site-nav.tsx`): keyboard
   (Escape) close, click-outside close, auto-close on viewport resize past
   the `md` breakpoint, `aria-expanded`/`aria-controls`/`aria-label` on the
   mobile toggle.
 - Dark-first glassmorphism design system in `app/globals.css` with
   `prefers-reduced-transparency` and `prefers-reduced-motion` fallbacks.
-- Honest failure handling on the two filesystem-backed API routes: if the
-  write fails, the route logs a minimal placeholder record and returns
+- Honest failure handling on the Firestore-backed API routes: if a write
+  throws, the route logs the failure server-side and returns
   `success: false` with a clear message, instead of a fake success.
-- A very thorough `PLAN.md` already documenting the architecture, the flat
-  JSON data-store decision and its filesystem/serverless limitation, the
-  API contracts, and the open items list below (largely mirrored here).
+- A very thorough `PLAN.md` already documenting the architecture, the
+  Firestore data-store decision, the API contracts, and the open items
+  list below (largely mirrored here).
 
 ## 5. What's missing / known gaps
 
@@ -124,12 +149,12 @@ job listings.
   a placeholder "Detailed service list: to be confirmed" card instead of
   real packages/pricing tiers. No pricing or package data exists anywhere
   in the codebase.
-- **No real job listings.** All three entries in `data/jobs.json` are
-  TODO-marked (`"TODO: placeholder example listing only..."` in both
-  `summary` and `description` for every entry), with fake companies named
-  "Example Company (placeholder)" and `isExample: true`. These must be
-  replaced or removed before the job board is treated as live; there is
-  currently no real job in the system.
+- **No real job listings.** All three documents currently in the
+  `labs_jobs` Firestore collection are TODO-marked (`"TODO: placeholder
+  example listing only..."` in both `summary` and `description` for every
+  entry), with fake companies named "Example Company (placeholder)" and
+  `isExample: true`. These must be replaced or removed before the job
+  board is treated as live; there is currently no real job in the system.
 - **No team photo.** Both `app/page.tsx` (lines 123–129) and
   `app/about/page.tsx` (lines 37–42) have a code comment describing an
   icon placeholder slot (`<Users>` icon) to be swapped for
@@ -143,14 +168,13 @@ job listings.
   calendar booking. A submitted consultation request is not actually
   followed up on by any automated system.
 - **Job board has no admin/moderation UI.** Approving a pending
-  `data/job-requests.json` entry into `data/jobs.json`, or reviewing
-  `data/talent.json` signups, is a fully manual, out-of-band process —
-  there is no `/admin` route or any UI for this anywhere in `app/`.
-- **Flat-file job board storage won't survive most production
-  deployments.** `lib/jobs.ts` reads/writes local JSON files with
-  `fs.promises`; this breaks (writes are lost) on ephemeral or read-only
-  filesystem targets such as typical serverless/edge deployments (e.g.
-  Vercel's default functions). No datastore migration has been done yet.
+  `labs_job_requests` document into `labs_jobs`, or reviewing
+  `labs_talent` signups, is a fully manual, out-of-band process — there is
+  no `/admin` route or any UI for this anywhere in `app/`. Today, the only
+  way to publish a job is to manually write or copy a document into the
+  `labs_jobs` Firestore collection (for example with a one-off script
+  using the Firebase Admin SDK, or by hand in the Firebase console),
+  matching the `Job` shape in `lib/jobs.ts`.
 - **Nav has no link to `/`'s "About" anchor consistency check**: the
   home page has an `id="about"` section (`app/page.tsx` line 120) that
   duplicates the separate `/about` route's content almost verbatim —
@@ -174,11 +198,10 @@ job listings.
     the associated error text.
   - No skip-to-content link before `<SiteNav>` in `app/layout.tsx` for
     keyboard users to bypass the nav.
-- **`data/talent.json` and `data/job-requests.json` are unversioned,
-  human-editable JSON acting as a datastore** — fine for v1 per `PLAN.md`,
-  but there's no backup/concurrency handling if two submissions race
-  (the `appendJsonRecord` read-modify-write in `lib/jobs.ts` is not
-  atomic/locked).
+- **No admin UI over the Firestore data.** `labs_talent` and
+  `labs_job_requests` documents can currently only be inspected/edited via
+  the Firebase console or a one-off script — there is no in-app view for
+  reviewing talent signups or job-post requests.
 
 ## 6. Dev
 

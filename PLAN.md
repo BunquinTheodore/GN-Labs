@@ -44,77 +44,91 @@ app/
   about/page.tsx              /about (also reachable from nav)
   services/page.tsx           /services: AI integration for business, TODO marker for detailed list
   consultation/page.tsx       /consultation: booking form
-  api/consultation/route.ts   POST handler, server-side validation, placeholder backend
+  api/consultation/route.ts   POST handler, server-side validation, writes to Firestore
   jobs/page.tsx                /jobs: listing (handles empty state)
   jobs/[slug]/page.tsx          /jobs/[slug]: job detail
   jobs/post/page.tsx            /jobs/post: "Post a job" request form
   jobs/join/page.tsx            /jobs/join: "Join the talent list" form
-  api/jobs/post/route.ts        POST handler, writes to data/job-requests.json (status "pending")
-  api/jobs/join/route.ts        POST handler, writes to data/talent.json
+  api/jobs/post/route.ts        POST handler, writes to the labs_job_requests Firestore collection (status "pending")
+  api/jobs/join/route.ts        POST handler, writes to the labs_talent Firestore collection
 components/
   site-nav.tsx, site-footer.tsx, glass-card.tsx
   consultation-form.tsx, job-post-form.tsx, talent-join-form.tsx
   ui/                          shadcn/ui components (button, input, textarea,
                                 label, select, card, badge, separator)
 lib/
-  jobs.ts                      Flat-file data access (read jobs, append requests/signups)
-data/
-  jobs.json                    Example job listings (TODO-marked placeholders, not real jobs)
-  talent.json                  Talent-list signups (starts empty, appended to at runtime)
-  job-requests.json            Pending "post a job" submissions (starts empty, status "pending")
+  jobs.ts                      Firestore data access (read jobs, write requests/signups/consultations)
+  firebase-admin.ts            Lazily-initialized Firebase Admin SDK app + Firestore client
+
+Firestore collections (in GN Academy's shared Firebase project, `labs_`-prefixed
+so they can never collide with GN Academy's own collections):
+  labs_jobs                    Example job listings (TODO-marked placeholders, not real jobs)
+  labs_talent                  Talent-list signups (appended to at runtime)
+  labs_job_requests            Pending "post a job" submissions (status "pending")
+  labs_consultations           Consultation-form submissions
 ```
 
 ## Job board v1 scope
 
 Deliberately minimal, per the brief: no payments, no messaging, no
 accounts. A submitted job post is not published automatically; it is
-stored with `status: "pending"` in `data/job-requests.json` and needs a
-human to move it into `data/jobs.json` (there is no admin UI yet, see open
-items).
+stored with `status: "pending"` as a `labs_job_requests` Firestore
+document and needs a human to move it into `labs_jobs` (there is no admin
+UI yet, see open items).
 
-## Job board data approach: flat JSON files on the local filesystem
+## Job board data approach: Cloud Firestore, reusing GN Academy's Firebase project
 
-**Chosen approach:** `lib/jobs.ts` reads `data/jobs.json` for the listing
-and detail pages, and the two API routes
-(`app/api/jobs/post/route.ts`, `app/api/jobs/join/route.ts`) append
-records to `data/job-requests.json` and `data/talent.json` respectively
-using Node's `fs.promises`.
+**Chosen approach:** `lib/jobs.ts` reads the `labs_jobs` Firestore
+collection for the listing and detail pages, and the two API routes
+(`app/api/jobs/post/route.ts`, `app/api/jobs/join/route.ts`), plus
+`app/api/consultation/route.ts`, write documents to the `labs_job_requests`,
+`labs_talent`, and `labs_consultations` collections respectively, via the
+Firebase Admin SDK (`lib/firebase-admin.ts`). This reuses GN Academy's
+existing Firebase project (same project id / service account credentials,
+supplied via `FIREBASE_ADMIN_PROJECT_ID` / `FIREBASE_ADMIN_CLIENT_EMAIL` /
+`FIREBASE_ADMIN_PRIVATE_KEY`) rather than provisioning a new one, but every
+GN Labs collection is `labs_`-prefixed so it can never collide with GN
+Academy's own collections in that shared project. The admin SDK bypasses
+Firestore security rules; there is no client-side Firestore access from
+GN Labs.
 
-**Why:** this is the simplest approach that is still real (not a fake
-placeholder) for a v1 with no real jobs, no accounts, and no database yet.
-It requires no external service and keeps the data human-readable and
-easy to hand-edit while the catalog is small.
+**Why:** flat JSON files on the local filesystem (the original v1
+approach) do not survive most production deployments — writes are lost on
+ephemeral or read-only filesystem targets such as typical serverless/edge
+runtimes (e.g. Vercel's default functions). Firestore is a real,
+persistent datastore that works the same way in `next dev`, `next start`,
+and serverless/edge deployments, and reusing GN Academy's project avoids
+provisioning and paying for a second Firebase project for what is still a
+small, low-traffic app.
 
-**Limitation, stated plainly:** this only works when the app runs on a
-persistent Node.js process with a writable filesystem, for example
-`next start` on a normal VM or container, or `next dev` locally. It does
-**not** work on deployment targets with an ephemeral or read-only
-filesystem at runtime (for example Vercel's default serverless functions,
-or most edge runtimes) — writes there either fail or do not persist
-between invocations/deploys.
+Both write routes (and the consultation route) handle write failures
+honestly: if the Firestore `.set()` call throws (bad/missing credentials,
+Firestore unreachable, etc.), the route logs the error server-side and
+returns a clear `success: false` error to the client instead of a fake
+success message.
 
-Both write routes handle that failure honestly: if the `fs.writeFile`
-call throws, the route logs a placeholder record (id, title/role, and
-company only, not full submission content) to the server console, returns
-a clear `success: false` error to the client instead of a fake success
-message, and does not pretend the submission was stored. If GN Labs is
-deployed to a serverless/edge target, swap `lib/jobs.ts`'s file I/O for a
-real datastore (Postgres, a KV store, etc.) before relying on the job
-board in production.
+**No admin UI yet.** There is no `/admin` route or in-app tooling for
+approving a `labs_job_requests` entry into `labs_jobs`, or for reviewing
+`labs_talent`/`labs_consultations` documents. Today, publishing a job
+means manually writing or copying a document into the `labs_jobs`
+collection that matches the `Job` shape in `lib/jobs.ts` — for example via
+a one-off Node script using the Firebase Admin SDK, or by hand in the
+Firebase console — not by editing a file.
 
 ## API contracts
 
 - `POST /api/consultation`: requires `name`, `company`, `email`,
   `automationGoal`; optional `budgetRange`, `preferredDate`. Validates
-  server-side, returns `{ success, message, errors? }`. Placeholder
-  backend: no email/CRM/calendar integration exists yet; it logs
-  submission metadata only (field presence/lengths), never the raw
-  message or contact details.
+  server-side, writes a `labs_consultations` Firestore document, and
+  returns `{ success, message, errors? }`. No email/CRM/calendar
+  integration exists yet; the console log alongside the Firestore write
+  logs metadata only (field presence/lengths), never the raw message or
+  contact details.
 - `POST /api/jobs/post`: requires `title`, `company`, `contactEmail`,
   `location`, `employmentType`, `description` (30+ characters). Writes a
-  `status: "pending"` record to `data/job-requests.json`.
+  `status: "pending"` document to the `labs_job_requests` collection.
 - `POST /api/jobs/join`: requires `name`, `email`, `role`; optional
-  `skills`, `linkUrl`. Appends to `data/talent.json`.
+  `skills`, `linkUrl`. Writes a document to the `labs_talent` collection.
 
 ## Open items for the team
 
@@ -122,26 +136,30 @@ board in production.
    TODO-marked placeholder instead of a confirmed list of specific
    integrations/packages/pricing tiers. No such list was confirmed at
    build time.
-2. **Real job listings.** `data/jobs.json` currently contains three
-   TODO-marked example listings, clearly labeled `isExample: true` and
-   shown with an "Example" badge in the UI. They must be replaced or
-   removed before the job board is treated as live. No real jobs exist
-   yet.
+2. **Real job listings.** The `labs_jobs` Firestore collection currently
+   contains three TODO-marked example listings, clearly labeled
+   `isExample: true` and shown with an "Example" badge in the UI. They
+   must be replaced or removed before the job board is treated as live.
+   No real jobs exist yet.
 3. **Real team photo.** The About section has a placeholder icon slot
    with instructions in a code comment for where to drop
    `public/team-01.jpg` once a real photo exists. No fabricated or stock
    photo was used.
 4. **Job board admin flow.** There is no admin UI yet to approve a
-   pending `job-requests.json` entry into `jobs.json`, or to review
-   `talent.json` signups. For v1 this is a manual, human-in-the-loop step
-   (per the "no accounts" v1 scope); a lightweight internal review tool
-   is a reasonable next step once real submissions start arriving.
-5. **Production datastore for the job board**, if GN Labs is deployed to
-   a platform with an ephemeral/read-only filesystem at runtime (see
-   "Job board data approach" above).
-6. **Consultation backend.** `/api/consultation` is a validated
-   placeholder; connect it to a real inbox/CRM/calendar before relying on
-   it to actually schedule consultations.
+   pending `labs_job_requests` document into `labs_jobs`, or to review
+   `labs_talent` signups. For v1 this is a manual, human-in-the-loop step
+   (per the "no accounts" v1 scope): publishing a job means manually
+   writing/copying a document into `labs_jobs` (e.g. via a one-off
+   script), not editing a file. A lightweight internal review tool is a
+   reasonable next step once real submissions start arriving.
+5. **Admin UI over Firestore data**, so `labs_job_requests` and
+   `labs_talent` documents can be reviewed/approved in-app instead of via
+   the Firebase console or a one-off script (see "Job board data
+   approach" above).
+6. **Consultation backend.** `/api/consultation` durably stores
+   submissions in Firestore (`labs_consultations`) but has no email/CRM/
+   calendar integration; connect it to a real inbox/CRM/calendar before
+   relying on it to actually schedule consultations.
 
 ## Verification performed
 
