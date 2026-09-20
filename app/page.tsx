@@ -1,11 +1,11 @@
 import Link from "next/link";
+import Image from "next/image";
 import {
   Workflow,
   PlugZap,
   Gauge,
   ArrowRight,
   Sparkles,
-  Users,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { GlassCard } from "@/components/glass-card";
@@ -119,19 +119,19 @@ export default function HomePage() {
 
       <section id="about" className="px-4 pb-24 sm:px-6">
         <div className="mx-auto max-w-6xl">
-          <GlassCard className="grid gap-8 sm:grid-cols-[auto_1fr] sm:items-center">
-            {/*
-              Team photo placeholder slot (optional per brief).
-              Drop a real photo at public/team-01.jpg and swap this
-              div for: <Image src="/team-01.jpg" alt="The GN Labs team" ... />
-              No real photo exists yet, so we show an icon placeholder
-              instead of a fake or stock image.
-            */}
-            <div className="glass-strong flex size-24 shrink-0 items-center justify-center rounded-2xl border-glass-border sm:size-28">
-              <Users className="size-10 text-mist-dim" aria-hidden="true" />
+          <GlassCard className="grid gap-0 p-0 sm:grid-cols-[minmax(0,300px)_1fr] sm:items-stretch">
+            <div className="relative aspect-[3/4] w-full overflow-hidden rounded-t-[calc(var(--radius-lg)-1px)] sm:aspect-auto sm:rounded-l-[calc(var(--radius-lg)-1px)] sm:rounded-tr-none">
+              <Image
+                src="/team-01.jpg"
+                alt="The GN Labs team gathered around a glowing gn Ventures sign"
+                fill
+                sizes="(min-width: 640px) 300px, 100vw"
+                className="object-cover"
+              />
+              <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-ink-deep/40 via-transparent to-transparent sm:bg-gradient-to-r" />
             </div>
 
-            <div className="flex flex-col gap-3">
+            <div className="flex flex-col justify-center gap-3 p-6 sm:p-8">
               <h2 className="font-display text-2xl font-semibold tracking-tight text-mist">
                 About GN Labs
               </h2>

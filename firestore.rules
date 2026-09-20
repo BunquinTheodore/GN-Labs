@@ -1,0 +1,13 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // GN Labs never reads or writes Firestore from the client. All access
+    // goes through the firebase-admin SDK (service account) from Next.js
+    // API routes, which bypasses these rules entirely. Deny all direct
+    // client access as a safety net.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

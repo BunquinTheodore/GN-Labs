@@ -1,4 +1,9 @@
 import { NextResponse } from "next/server";
+import { randomUUID } from "crypto";
+import {
+  appendConsultationRequest,
+  type ConsultationRequest,
+} from "@/lib/jobs";
 
 export interface ConsultationPayload {
   name: string;
@@ -33,11 +38,10 @@ function fieldErrors(body: Partial<ConsultationPayload>) {
   return errors;
 }
 
-// Placeholder backend: this route does not send email, write to a CRM, or
-// book a calendar slot. It validates the submission and logs metadata only
-// (field presence and lengths, never the raw message or contact details)
-// so no real integration is implied. Replace with a real booking/CRM
-// integration before launch.
+// This route persists submissions to Firestore (see lib/jobs.ts /
+// lib/firebase-admin.ts). It does not send email, write to a CRM, or book a
+// calendar slot — replace with a real booking/CRM integration before launch
+// if that's needed, but the submission itself is durably stored.
 export async function POST(request: Request) {
   let body: Partial<ConsultationPayload>;
 
@@ -59,8 +63,38 @@ export async function POST(request: Request) {
     );
   }
 
+  const record: ConsultationRequest = {
+    id: randomUUID(),
+    name: body.name!.trim(),
+    company: body.company!.trim(),
+    email: body.email!.trim(),
+    automationGoal: body.automationGoal!.trim(),
+    budgetRange: body.budgetRange?.trim() || undefined,
+    preferredDate: body.preferredDate?.trim() || undefined,
+    submittedAt: new Date().toISOString(),
+  };
+
+  try {
+    await appendConsultationRequest(record);
+  } catch (error) {
+    console.error(
+      "[consultation] could not write to Firestore",
+      { id: record.id },
+      error
+    );
+    return NextResponse.json(
+      {
+        success: false,
+        message:
+          "We could not save your submission right now. Please try again shortly.",
+      },
+      { status: 500 }
+    );
+  }
+
   console.log("[consultation] submission received", {
-    at: new Date().toISOString(),
+    id: record.id,
+    at: record.submittedAt,
     hasBudgetRange: Boolean(body.budgetRange),
     hasPreferredDate: Boolean(body.preferredDate),
     automationGoalLength: body.automationGoal?.trim().length ?? 0,

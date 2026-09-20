@@ -33,9 +33,9 @@ function fieldErrors(body: PostJobBody) {
   return errors;
 }
 
-// Filesystem-backed placeholder store. See PLAN.md for the tradeoffs of
-// this approach (works on a persistent Node server, not on ephemeral
-// serverless filesystems) and for the honest fallback behavior below.
+// Persisted to Firestore (see lib/jobs.ts / lib/firebase-admin.ts). Job
+// requests land in the labs_job_requests collection with status "pending"
+// and are not surfaced on /jobs until approved and copied into labs_jobs.
 export async function POST(request: Request) {
   let body: PostJobBody;
 
@@ -72,11 +72,10 @@ export async function POST(request: Request) {
   try {
     await appendJobRequest(record);
   } catch (error) {
-    // Filesystem write failed (e.g. a read-only deployment target). Log a
-    // placeholder record instead of silently dropping the submission, and
-    // say so plainly rather than pretending it was stored.
+    // Firestore write failed. Surface a plain error to the user instead of
+    // pretending the submission was stored.
     console.error(
-      "[jobs/post] could not write to data/job-requests.json; logging placeholder instead",
+      "[jobs/post] could not write job request to Firestore",
       { id: record.id, title: record.title, company: record.company },
       error
     );

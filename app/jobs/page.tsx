@@ -36,13 +36,6 @@ export default async function JobsPage() {
           </div>
         </div>
 
-        {jobs.some((job) => job.isExample) && (
-          <p className="mt-6 text-sm text-amber">
-            The listings below are TODO example placeholders used to design
-            this page. They are not real, open jobs.
-          </p>
-        )}
-
         <div className="mt-10 flex flex-col gap-4">
           {jobs.length === 0 ? (
             <GlassCard className="flex flex-col items-center gap-3 py-16 text-center">

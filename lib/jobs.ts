@@ -1,5 +1,6 @@
-import { promises as fs } from "fs";
-import path from "path";
+import "server-only";
+
+import { adminDb } from "@/lib/firebase-admin";
 
 export interface Job {
   slug: string;
@@ -37,29 +38,41 @@ export interface JobRequest {
   submittedAt: string;
 }
 
-const DATA_DIR = path.join(process.cwd(), "data");
+export interface ConsultationRequest {
+  id: string;
+  name: string;
+  company: string;
+  email: string;
+  automationGoal: string;
+  budgetRange?: string;
+  preferredDate?: string;
+  submittedAt: string;
+}
 
-async function readJsonFile<T>(filename: string, fallback: T): Promise<T> {
+// Firestore collections, namespaced with a `labs_` prefix so this app's data
+// can never collide with GN Academy's own collections in the shared
+// Firebase project. All access here goes through the admin SDK (service
+// account), which bypasses Firestore security rules — there is no
+// client-side Firestore access from GN Labs.
+const JOBS_COLLECTION = "labs_jobs";
+const JOB_REQUESTS_COLLECTION = "labs_job_requests";
+const TALENT_COLLECTION = "labs_talent";
+const CONSULTATIONS_COLLECTION = "labs_consultations";
+
+export async function getJobs(): Promise<Job[]> {
   try {
-    const raw = await fs.readFile(path.join(DATA_DIR, filename), "utf-8");
-    return JSON.parse(raw) as T;
+    const snapshot = await adminDb()
+      .collection(JOBS_COLLECTION)
+      .orderBy("postedAt", "desc")
+      .get();
+    return snapshot.docs.map((doc) => doc.data() as Job);
   } catch (error) {
-    // Missing or unreadable file: fall back to an empty data set instead of
-    // throwing, so pages can still render an empty state.
-    console.warn(`[data] could not read ${filename}`, error);
-    return fallback;
+    // Missing collection / unreachable Firestore: fall back to an empty
+    // data set instead of throwing, so pages can still render an empty
+    // state.
+    console.warn("[data] could not read jobs from Firestore", error);
+    return [];
   }
-}
-
-async function appendJsonRecord<T>(filename: string, record: T): Promise<void> {
-  const filePath = path.join(DATA_DIR, filename);
-  const existing = await readJsonFile<T[]>(filename, []);
-  existing.push(record);
-  await fs.writeFile(filePath, JSON.stringify(existing, null, 2) + "\n", "utf-8");
-}
-
-export function getJobs(): Promise<Job[]> {
-  return readJsonFile<Job[]>("jobs.json", []);
 }
 
 export async function getJobBySlug(slug: string): Promise<Job | undefined> {
@@ -67,10 +80,16 @@ export async function getJobBySlug(slug: string): Promise<Job | undefined> {
   return jobs.find((job) => job.slug === slug);
 }
 
-export function appendJobRequest(record: JobRequest): Promise<void> {
-  return appendJsonRecord<JobRequest>("job-requests.json", record);
+export async function appendJobRequest(record: JobRequest): Promise<void> {
+  await adminDb().collection(JOB_REQUESTS_COLLECTION).doc(record.id).set(record);
 }
 
-export function appendTalentSignup(record: TalentSignup): Promise<void> {
-  return appendJsonRecord<TalentSignup>("talent.json", record);
+export async function appendTalentSignup(record: TalentSignup): Promise<void> {
+  await adminDb().collection(TALENT_COLLECTION).doc(record.id).set(record);
+}
+
+export async function appendConsultationRequest(
+  record: ConsultationRequest
+): Promise<void> {
+  await adminDb().collection(CONSULTATIONS_COLLECTION).doc(record.id).set(record);
 }

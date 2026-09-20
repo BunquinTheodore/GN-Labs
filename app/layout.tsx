@@ -3,6 +3,7 @@ import { Geist, Outfit } from "next/font/google";
 import "./globals.css";
 import { SiteNav } from "@/components/site-nav";
 import { SiteFooter } from "@/components/site-footer";
+import { ClickSoundProvider } from "@/components/ClickSoundProvider";
 import { cn } from "@/lib/utils";
 
 const geist = Geist({
@@ -32,6 +33,10 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       className={cn("h-full", "antialiased", geist.variable, outfit.variable, "font-sans")}
     >
       <body className="min-h-full bg-ink text-mist">
+        <ClickSoundProvider />
+        <div aria-hidden="true" className="gn-splash">
+          <span className="gn-splash-title">GN Labs</span>
+        </div>
         <div aria-hidden="true" className="ambient-bg">
           <span className="ambient-blob ambient-blob-lime" />
           <span className="ambient-blob ambient-blob-cyan" />

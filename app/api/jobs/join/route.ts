@@ -26,8 +26,7 @@ function fieldErrors(body: JoinTalentBody) {
   return errors;
 }
 
-// Filesystem-backed placeholder store. See PLAN.md for the tradeoffs of
-// this approach and the honest fallback behavior below.
+// Persisted to Firestore (see lib/jobs.ts / lib/firebase-admin.ts).
 export async function POST(request: Request) {
   let body: JoinTalentBody;
 
@@ -63,7 +62,7 @@ export async function POST(request: Request) {
     await appendTalentSignup(record);
   } catch (error) {
     console.error(
-      "[jobs/join] could not write to data/talent.json; logging placeholder instead",
+      "[jobs/join] could not write talent signup to Firestore",
       { id: record.id, role: record.role },
       error
     );

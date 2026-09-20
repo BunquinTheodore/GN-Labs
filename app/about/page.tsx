@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import { Users, Sparkles, Target } from "lucide-react";
+import Image from "next/image";
+import { Sparkles, Target } from "lucide-react";
 import { GlassCard } from "@/components/glass-card";
 
 export const metadata: Metadata = {
@@ -32,23 +33,39 @@ export default function AboutPage() {
           alongside operators and engineering teams to scope, build, and
           hand off AI integrations that hold up in production.
         </p>
+      </div>
 
-        <GlassCard className="mt-10 grid gap-8 sm:grid-cols-[auto_1fr] sm:items-center">
-          {/*
-            Team photo placeholder slot (optional per brief). Drop a real
-            photo at public/team-01.jpg and replace this icon block with:
-            <Image src="/team-01.jpg" alt="The GN Labs team" width={320} height={320} />
-            No real team photo exists yet.
-          */}
-          <div className="glass-strong flex size-24 shrink-0 items-center justify-center rounded-2xl border-glass-border sm:size-28">
-            <Users className="size-10 text-mist-dim" aria-hidden="true" />
+      <div className="mx-auto mt-10 max-w-3xl">
+        <GlassCard className="glass-strong grid gap-0 p-0 sm:grid-cols-[1.1fr_1fr] sm:items-stretch">
+          <div className="relative aspect-[3/4] w-full overflow-hidden rounded-t-[calc(var(--radius-lg)-1px)] sm:rounded-l-[calc(var(--radius-lg)-1px)] sm:rounded-tr-none">
+            <Image
+              src="/team-01.jpg"
+              alt="The GN Labs team gathered around a glowing gn Ventures sign"
+              fill
+              sizes="(min-width: 640px) 45vw, 100vw"
+              className="object-cover"
+              priority
+            />
+            <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-ink-deep/50 via-transparent to-transparent sm:bg-gradient-to-r sm:from-transparent" />
           </div>
-          <p className="text-sm text-mist-dim sm:text-base">
-            Team photo coming soon. GN Labs is a small, hands-on team, part
-            of GN Ventures alongside GN Club, GN Academy, and GN Media.
-          </p>
-        </GlassCard>
 
+          <div className="flex flex-col justify-center gap-4 p-8 sm:p-10">
+            <span className="text-xs font-medium uppercase tracking-[0.14em] text-mist-dim">
+              The team
+            </span>
+            <p className="text-base text-mist-dim sm:text-lg">
+              GN Labs is a small, hands-on team, part of GN Ventures alongside
+              GN Club, GN Academy, and GN Media.
+            </p>
+            <p className="text-sm text-mist-dim">
+              Eleven people, one workshop, and a habit of shipping things that
+              hold up after the demo ends.
+            </p>
+          </div>
+        </GlassCard>
+      </div>
+
+      <div className="mx-auto max-w-3xl">
         <div className="mt-10 grid gap-5 sm:grid-cols-2">
           {values.map(({ icon: Icon, title, body }) => (
             <GlassCard key={title} as="article" className="flex flex-col gap-3">
