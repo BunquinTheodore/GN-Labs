@@ -4,6 +4,7 @@ import "./globals.css";
 import { SiteNav } from "@/components/site-nav";
 import { SiteFooter } from "@/components/site-footer";
 import { ClickSoundProvider } from "@/components/ClickSoundProvider";
+import { AmbientVisibilityController } from "@/components/AmbientVisibilityController";
 import { cn } from "@/lib/utils";
 
 const geist = Geist({
@@ -34,6 +35,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     >
       <body className="min-h-full bg-ink text-mist">
         <ClickSoundProvider />
+        <AmbientVisibilityController />
         <div aria-hidden="true" className="gn-splash">
           <span className="gn-splash-title">GN Labs</span>
         </div>

@@ -11,8 +11,13 @@ export const metadata: Metadata = {
   description: "Open roles and talent opportunities from GN Labs.",
 };
 
+// Keeps the number of simultaneously blurred, animating GlassCards bounded
+// even if the Firestore-backed role list grows well past a single screen.
+const MAX_VISIBLE_JOBS = 40;
+
 export default async function JobsPage() {
-  const jobs = await getJobs();
+  const allJobs = await getJobs();
+  const jobs = allJobs.slice(0, MAX_VISIBLE_JOBS);
 
   return (
     <div className="px-4 py-20 sm:px-6">
@@ -53,7 +58,14 @@ export default async function JobsPage() {
             </GlassCard>
           ) : (
             jobs.map((job) => (
-              <GlassCard key={job.slug} as="article" className="flex flex-col gap-3">
+              <GlassCard
+                key={job.slug}
+                as="article"
+                // content-visibility skips paint/layout (and pauses the
+                // .glass animations inside) for rows scrolled off-screen,
+                // so blur+animation cost stays flat as the list grows.
+                className="flex flex-col gap-3 [content-visibility:auto] [contain-intrinsic-size:0_220px]"
+              >
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
                     <h2 className="font-display text-lg font-semibold tracking-tight text-mist">

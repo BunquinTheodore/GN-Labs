@@ -254,7 +254,10 @@
     color: transparent;
   }
 
-  /* top-edge inset highlight, the signature glass seam */
+  /* top-edge inset highlight, the signature glass seam. Also carries the
+     pulsing glow (see glass-glow-pulse below): box-shadow itself is static
+     here, only this pseudo-element's opacity animates, so the pulse is
+     compositor-only instead of forcing a box-shadow repaint every frame. */
   .glass::before {
     content: "";
     position: absolute;
@@ -272,6 +275,11 @@
       linear-gradient(#fff 0 0);
     -webkit-mask-composite: xor;
     mask-composite: exclude;
+    box-shadow:
+      0 1px 0 0 rgba(255, 255, 255, 0.16) inset,
+      0 22px 52px -18px rgba(202, 241, 74, 0.34),
+      0 2px 14px -3px rgba(0, 0, 0, 0.55);
+    animation: glass-glow-pulse 5.5s ease-in-out infinite;
     z-index: 1;
   }
 
@@ -285,7 +293,6 @@
   .button-glass {
     overflow: hidden;
     isolation: isolate;
-    animation: glass-glow-pulse 5.5s ease-in-out infinite;
   }
   .glass::after,
   .button-glass::after {
@@ -323,19 +330,16 @@
     }
   }
 
+  /* Opacity-only: lets the browser run this on the compositor instead of
+     repainting a box-shadow every frame on every .glass/.button-glass
+     surface on the page. */
   @keyframes glass-glow-pulse {
     0%,
     100% {
-      box-shadow:
-        0 1px 0 0 rgba(255, 255, 255, 0.08) inset,
-        0 18px 40px -20px rgba(202, 241, 74, 0.18),
-        0 2px 10px -4px rgba(0, 0, 0, 0.5);
+      opacity: 0.45;
     }
     50% {
-      box-shadow:
-        0 1px 0 0 rgba(255, 255, 255, 0.16) inset,
-        0 22px 52px -18px rgba(202, 241, 74, 0.34),
-        0 2px 14px -3px rgba(0, 0, 0, 0.55);
+      opacity: 1;
     }
   }
 
@@ -363,7 +367,26 @@
       linear-gradient(#fff 0 0);
     -webkit-mask-composite: xor;
     mask-composite: exclude;
+    box-shadow:
+      0 1px 0 0 rgba(255, 255, 255, 0.16) inset,
+      0 22px 52px -18px rgba(202, 241, 74, 0.34),
+      0 2px 14px -3px rgba(0, 0, 0, 0.55);
+    animation: glass-glow-pulse 5.5s ease-in-out infinite;
     z-index: 1;
+  }
+
+  /* Backgrounded tab: freeze every infinite animation on this page.
+     Toggled by AmbientVisibilityController via the Page Visibility API --
+     none of this depends on scroll position, so a plain global class is
+     enough (per-card off-screen gating is handled separately via
+     content-visibility on the job list). */
+  .tab-hidden .glass::before,
+  .tab-hidden .glass::after,
+  .tab-hidden .button-glass::before,
+  .tab-hidden .button-glass::after,
+  .tab-hidden .ambient-blob,
+  .tab-hidden .ambient-grid {
+    animation-play-state: paused;
   }
 
   /* ---------------------------------------------------------------
@@ -418,6 +441,24 @@
       linear-gradient(90deg, rgba(255, 255, 255, 0.035) 1px, transparent 1px);
     background-size: 56px 56px;
     animation: grid-drift 90s linear infinite;
+  }
+
+  /* Large-radius blur filters cost disproportionately more on mobile GPUs
+     than on desktop; shrink the blobs and their blur radius under the
+     width where they'd mostly be off-canvas anyway. */
+  @media (max-width: 640px) {
+    .ambient-blob {
+      filter: blur(56px);
+    }
+    .ambient-blob-lime,
+    .ambient-blob-cyan {
+      width: 24rem;
+      height: 24rem;
+    }
+    .ambient-blob-amber {
+      width: 16rem;
+      height: 16rem;
+    }
   }
 
   @keyframes drift-a {
@@ -553,6 +594,11 @@
       0 1px 0 0 rgba(255, 255, 255, 0.14) inset,
       0 20px 46px -18px rgba(202, 241, 74, 0.28),
       0 2px 12px -4px rgba(0, 0, 0, 0.55) !important;
+  }
+  .glass::before,
+  .button-glass::before {
+    animation: none !important;
+    opacity: 1 !important;
   }
   .glass::after,
   .button-glass::after {

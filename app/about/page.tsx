@@ -44,7 +44,6 @@ export default function AboutPage() {
               fill
               sizes="(min-width: 640px) 45vw, 100vw"
               className="object-cover"
-              priority
             />
             <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-ink-deep/50 via-transparent to-transparent sm:bg-gradient-to-r sm:from-transparent" />
           </div>
