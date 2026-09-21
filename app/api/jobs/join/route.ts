@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { randomUUID } from "crypto";
 import { appendTalentSignup, type TalentSignup } from "@/lib/jobs";
+import { renderNotificationEmail, sendTeamNotification } from "@/lib/email";
 
 interface JoinTalentBody {
   name?: string;
@@ -26,7 +27,8 @@ function fieldErrors(body: JoinTalentBody) {
   return errors;
 }
 
-// Persisted to Firestore (see lib/jobs.ts / lib/firebase-admin.ts).
+// Persisted to Firestore (see lib/jobs.ts / lib/firebase-admin.ts) and
+// emailed to the team inbox via Resend (lib/email.ts).
 export async function POST(request: Request) {
   let body: JoinTalentBody;
 
@@ -80,6 +82,23 @@ export async function POST(request: Request) {
     id: record.id,
     submittedAt: record.submittedAt,
   });
+
+  const emailed = await sendTeamNotification({
+    subject: `New talent pool signup: ${record.name}`,
+    html: renderNotificationEmail("New talent pool signup", [
+      ["Name", record.name],
+      ["Email", record.email],
+      ["Role / specialty", record.role],
+      ["Skills", record.skills],
+      ["Link", record.linkUrl],
+      ["Submitted at", record.submittedAt],
+    ]),
+  });
+  if (!emailed) {
+    console.warn("[jobs/join] team notification email not sent", {
+      id: record.id,
+    });
+  }
 
   return NextResponse.json({
     success: true,

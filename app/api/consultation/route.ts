@@ -4,6 +4,7 @@ import {
   appendConsultationRequest,
   type ConsultationRequest,
 } from "@/lib/jobs";
+import { renderNotificationEmail, sendTeamNotification } from "@/lib/email";
 
 export interface ConsultationPayload {
   name: string;
@@ -39,9 +40,10 @@ function fieldErrors(body: Partial<ConsultationPayload>) {
 }
 
 // This route persists submissions to Firestore (see lib/jobs.ts /
-// lib/firebase-admin.ts). It does not send email, write to a CRM, or book a
-// calendar slot — replace with a real booking/CRM integration before launch
-// if that's needed, but the submission itself is durably stored.
+// lib/firebase-admin.ts) and emails the team inbox via Resend (lib/email.ts)
+// so a submission is not only findable in the database. It does not write
+// to a CRM or book a calendar slot — replace with a real booking/CRM
+// integration before launch if that's needed.
 export async function POST(request: Request) {
   let body: Partial<ConsultationPayload>;
 
@@ -99,6 +101,24 @@ export async function POST(request: Request) {
     hasPreferredDate: Boolean(body.preferredDate),
     automationGoalLength: body.automationGoal?.trim().length ?? 0,
   });
+
+  const emailed = await sendTeamNotification({
+    subject: `New consultation request: ${record.company}`,
+    html: renderNotificationEmail("New consultation / automation inquiry", [
+      ["Name", record.name],
+      ["Company", record.company],
+      ["Email", record.email],
+      ["Automation goal", record.automationGoal],
+      ["Budget range", record.budgetRange],
+      ["Preferred date", record.preferredDate],
+      ["Submitted at", record.submittedAt],
+    ]),
+  });
+  if (!emailed) {
+    console.warn("[consultation] team notification email not sent", {
+      id: record.id,
+    });
+  }
 
   return NextResponse.json({
     success: true,

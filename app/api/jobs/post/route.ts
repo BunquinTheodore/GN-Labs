@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { randomUUID } from "crypto";
 import { appendJobRequest, type JobRequest } from "@/lib/jobs";
+import { renderNotificationEmail, sendTeamNotification } from "@/lib/email";
 
 interface PostJobBody {
   title?: string;
@@ -33,9 +34,11 @@ function fieldErrors(body: PostJobBody) {
   return errors;
 }
 
-// Persisted to Firestore (see lib/jobs.ts / lib/firebase-admin.ts). Job
-// requests land in the labs_job_requests collection with status "pending"
-// and are not surfaced on /jobs until approved and copied into labs_jobs.
+// Persisted to Firestore (see lib/jobs.ts / lib/firebase-admin.ts) and
+// emailed to the team inbox via Resend (lib/email.ts) so a pending request
+// doesn't sit unnoticed. Job requests land in the labs_job_requests
+// collection with status "pending" and are not surfaced on /jobs until
+// approved and copied into labs_jobs.
 export async function POST(request: Request) {
   let body: PostJobBody;
 
@@ -93,6 +96,24 @@ export async function POST(request: Request) {
     id: record.id,
     submittedAt: record.submittedAt,
   });
+
+  const emailed = await sendTeamNotification({
+    subject: `New job post request: ${record.title} at ${record.company}`,
+    html: renderNotificationEmail("New job post request (pending approval)", [
+      ["Title", record.title],
+      ["Company", record.company],
+      ["Contact email", record.contactEmail],
+      ["Location", record.location],
+      ["Employment type", record.employmentType],
+      ["Description", record.description],
+      ["Submitted at", record.submittedAt],
+    ]),
+  });
+  if (!emailed) {
+    console.warn("[jobs/post] team notification email not sent", {
+      id: record.id,
+    });
+  }
 
   return NextResponse.json({
     success: true,
