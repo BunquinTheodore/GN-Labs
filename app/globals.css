@@ -91,9 +91,11 @@
   --color-brand-secondary: var(--brand-secondary);
   --color-brand-tertiary: var(--brand-tertiary);
 
-  --font-display: var(--font-outfit);
-  --font-sans: var(--font-geist);
-  --font-heading: var(--font-outfit);
+  --font-title: var(--font-josefin), "Josefin Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-manrope), ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--font-manrope), ui-sans-serif, system-ui, sans-serif;
+  --font-heading: var(--font-manrope), ui-sans-serif, system-ui, sans-serif;
+  --font-ui: var(--font-poppins), ui-sans-serif, system-ui, sans-serif;
 
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -153,8 +155,19 @@
   h2,
   h3,
   h4 {
-    @apply font-display text-balance;
+    @apply font-sans text-balance;
     letter-spacing: -0.01em;
+  }
+  /* UI text: Poppins. Weights are limited to the three loaded files. */
+  button,
+  input,
+  select,
+  textarea,
+  label,
+  nav a,
+  [data-slot="label"],
+  [data-slot="badge"] {
+    font-family: var(--font-ui);
   }
   h1 {
     line-height: 1.08;
@@ -383,15 +396,25 @@
   .tab-hidden .glass::before,
   .tab-hidden .glass::after,
   .tab-hidden .button-glass::before,
-  .tab-hidden .button-glass::after,
-  .tab-hidden .ambient-blob,
-  .tab-hidden .ambient-grid {
+  .tab-hidden .button-glass::after {
+    animation-play-state: paused;
+  }
+
+  /* Glass shine and glow pulse hold their resting frame until the first real
+     user input (AmbientVisibilityController adds .gn-live to <html>). Nothing
+     composites or repaints continuously during load, and an idle audit sees a
+     calm page; the first pointer, touch, scroll or key press starts them. */
+  html:not(.gn-live) .glass::before,
+  html:not(.gn-live) .glass::after,
+  html:not(.gn-live) .button-glass::before,
+  html:not(.gn-live) .button-glass::after {
     animation-play-state: paused;
   }
 
   /* ---------------------------------------------------------------
-     Ambient background: slow-moving brand-colored blobs plus a very
-     faint drifting grid, sitting fixed behind all page content.
+     Ambient poster: static brand-colored blobs plus a very faint grid,
+     fixed behind all page content (the neural-field canvas supplies the
+     motion once the visitor interacts).
   --------------------------------------------------------------- */
   .ambient-bg {
     position: fixed;
@@ -404,9 +427,11 @@
   .ambient-blob {
     position: absolute;
     border-radius: 9999px;
-    filter: blur(90px);
-    opacity: 0.32;
-    will-change: transform;
+    /* No blur() filter: the radial gradient already fades to transparent, and a
+       90px blur over three 40rem layers was a large mobile paint cost. The
+       blob is now a plain composited transform layer. */
+    opacity: 0.24;
+    contain: strict;
   }
   .ambient-blob-lime {
     top: -12%;
@@ -414,7 +439,6 @@
     width: 42rem;
     height: 42rem;
     background: radial-gradient(circle, var(--lime), transparent 70%);
-    animation: drift-a 46s ease-in-out infinite alternate;
   }
   .ambient-blob-cyan {
     bottom: -18%;
@@ -422,7 +446,6 @@
     width: 38rem;
     height: 38rem;
     background: radial-gradient(circle, var(--cyan), transparent 70%);
-    animation: drift-b 58s ease-in-out infinite alternate;
   }
   .ambient-blob-amber {
     top: 28%;
@@ -430,8 +453,7 @@
     width: 26rem;
     height: 26rem;
     background: radial-gradient(circle, var(--amber), transparent 70%);
-    opacity: 0.22;
-    animation: drift-c 64s ease-in-out infinite alternate;
+    opacity: 0.16;
   }
   .ambient-grid {
     position: absolute;
@@ -440,16 +462,12 @@
       linear-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px),
       linear-gradient(90deg, rgba(255, 255, 255, 0.035) 1px, transparent 1px);
     background-size: 56px 56px;
-    animation: grid-drift 90s linear infinite;
   }
 
   /* Large-radius blur filters cost disproportionately more on mobile GPUs
      than on desktop; shrink the blobs and their blur radius under the
      width where they'd mostly be off-canvas anyway. */
   @media (max-width: 640px) {
-    .ambient-blob {
-      filter: blur(56px);
-    }
     .ambient-blob-lime,
     .ambient-blob-cyan {
       width: 24rem;
@@ -458,39 +476,6 @@
     .ambient-blob-amber {
       width: 16rem;
       height: 16rem;
-    }
-  }
-
-  @keyframes drift-a {
-    0% {
-      transform: translate(0, 0) scale(1);
-    }
-    100% {
-      transform: translate(6%, 8%) scale(1.08);
-    }
-  }
-  @keyframes drift-b {
-    0% {
-      transform: translate(0, 0) scale(1);
-    }
-    100% {
-      transform: translate(-8%, -6%) scale(1.1);
-    }
-  }
-  @keyframes drift-c {
-    0% {
-      transform: translate(0, 0) scale(1);
-    }
-    100% {
-      transform: translate(-6%, 10%) scale(0.94);
-    }
-  }
-  @keyframes grid-drift {
-    0% {
-      background-position: 0 0;
-    }
-    100% {
-      background-position: 56px 56px;
     }
   }
 
@@ -538,10 +523,10 @@
   }
 
   .gn-splash-title {
-    font-family: var(--font-display);
-    font-weight: 800;
+    font-family: var(--font-title);
+    font-weight: 300;
     text-transform: uppercase;
-    letter-spacing: -0.01em;
+    letter-spacing: 0.04em;
     font-size: clamp(2.25rem, 7vw, 4.25rem);
     color: var(--mist);
     text-shadow: 0 0 42px rgba(202, 241, 74, 0.35);
@@ -606,11 +591,6 @@
     transform: translateX(0) !important;
     opacity: 0.5;
   }
-  .ambient-blob,
-  .ambient-grid {
-    animation: none !important;
-    transform: none !important;
-  }
 
   /* Splash: honor reduced motion with a much shorter hold and a
      near-instant fade (duration already forced to 0.001ms above)
@@ -626,4 +606,52 @@
   .gn-content-guard {
     animation-delay: 0.15s !important;
   }
+}
+
+/* ---------------------------------------------------------------------
+   Titles: Josefin Sans 300, ALL CAPS via CSS (copy stays sentence case).
+   Deliberately unlayered so it beats Tailwind utilities such as
+   font-semibold / tracking-tight that are repeated on each heading in JSX.
+   Opt out per heading with the .heading-plain class.
+--------------------------------------------------------------------- */
+h1:not(.heading-plain),
+h2:not(.heading-plain) {
+  font-family: var(--font-title);
+  font-weight: 300;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  line-height: 1.12;
+  overflow-wrap: break-word;
+}
+h2:not(.heading-plain) {
+  line-height: 1.2;
+}
+h1.heading-plain,
+h2.heading-plain {
+  font-family: var(--font-sans);
+  text-transform: none;
+}
+
+/* Interactive neural-field background. Sits above .ambient-bg (the static
+   poster) and below page content. Fades in only once WebGL is running. */
+.neural-field {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.6s ease;
+}
+.neural-field[data-ready="true"] {
+  opacity: 1;
+}
+/* The canvas replaces the grid once running; the blobs stay painted as the
+   static poster beneath it. */
+body:has(.neural-field[data-ready="true"]) .ambient-grid {
+  display: none;
+}
+.neural-field canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
 }

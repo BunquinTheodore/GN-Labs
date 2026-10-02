@@ -1,37 +1,71 @@
 import type { Metadata } from "next";
-import { Geist, Outfit } from "next/font/google";
+import { Josefin_Sans, Manrope, Poppins } from "next/font/google";
 import "./globals.css";
 import { SiteNav } from "@/components/site-nav";
 import { SiteFooter } from "@/components/site-footer";
 import { ClickSoundProvider } from "@/components/ClickSoundProvider";
 import { AmbientVisibilityController } from "@/components/AmbientVisibilityController";
+import { NeuralFieldBackground } from "@/components/neural-field/NeuralFieldBackground";
 import { cn } from "@/lib/utils";
 
-const geist = Geist({
-  variable: "--font-geist",
+const josefin = Josefin_Sans({
+  variable: "--font-josefin",
   subsets: ["latin"],
+  weight: ["300"],
+  display: "swap",
 });
 
-// Outfit: a bold, rounded, geometric sans that echoes the single-story
-// "gn" wordmark's rounded terminals better than the previous display
-// face (Space Grotesk), which reads more angular/technical.
-const outfit = Outfit({
-  variable: "--font-outfit",
+const manrope = Manrope({
+  variable: "--font-manrope",
   subsets: ["latin"],
-  weight: ["500", "600", "700", "800"],
+  display: "swap",
 });
+
+// Poppins is the UI face. Only the 500 weight (nav links, buttons) is
+// preloaded; 400 and 600 load on demand so first paint fetches 3 font files
+// (Josefin 300, Manrope, Poppins 500) instead of 5. Both declarations share the
+// "Poppins" family name, so they merge into one family at runtime.
+const poppins = Poppins({
+  variable: "--font-poppins",
+  subsets: ["latin"],
+  weight: ["500"],
+  display: "swap",
+});
+
+const poppinsSecondary = Poppins({
+  variable: "--font-poppins",
+  subsets: ["latin"],
+  weight: ["400", "600"],
+  display: "swap",
+  preload: false,
+});
+
+function resolveSiteUrl(): URL {
+  const configured =
+    process.env.NEXT_PUBLIC_SITE_URL ||
+    (process.env.VERCEL_PROJECT_PRODUCTION_URL
+      ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
+      : "http://localhost:3004");
+  try {
+    return new URL(configured);
+  } catch {
+    return new URL("http://localhost:3004");
+  }
+}
 
 export const metadata: Metadata = {
+  metadataBase: resolveSiteUrl(),
   title: "GN Labs: AI Integration for Business",
   description:
     "GN Labs helps teams design and ship practical AI integrations and automations. Book a consultation to scope your project.",
+  twitter: { card: "summary_large_image" },
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="en"
-      className={cn("h-full", "antialiased", geist.variable, outfit.variable, "font-sans")}
+      className={cn("h-full", "antialiased", josefin.variable, manrope.variable, poppins.variable, poppinsSecondary.variable, "font-sans")}
     >
       <body className="min-h-full bg-ink text-mist">
         <ClickSoundProvider />
@@ -45,6 +79,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           <span className="ambient-blob ambient-blob-amber" />
           <span className="ambient-grid" />
         </div>
+        <NeuralFieldBackground />
         <div className="gn-content-guard flex min-h-full flex-col">
           <SiteNav />
           <main className="flex-1">{children}</main>

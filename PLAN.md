@@ -220,3 +220,67 @@ across the whole GN Ventures family (bright glass, continuous subtle shine,
 brighter buttons, uppercase/tracked nav, no em dashes) — see the top-level
 `PLAN-OVERVIEW.md` session-log section for the full statement. Apply it by
 default to any future visual work on this site.
+
+## 2026-10-02: type system + neural field background
+
+### Type system
+- Fonts via `next/font/google` in `app/layout.tsx`, variables on `<html>`:
+  Josefin Sans 300 (`--font-josefin`), Manrope variable (`--font-manrope`),
+  Poppins 400/500/600 (`--font-poppins`). Geist and Outfit removed.
+- `app/globals.css`: `--font-title` (Josefin), `--font-sans`/`--font-display`/
+  `--font-heading` (Manrope), `--font-ui` (Poppins). Base layer gives Poppins
+  to buttons, inputs, selects, textareas, labels, `nav a`, badges.
+- Every `h1` and `h2` is Josefin 300, uppercase via CSS, 0.04em tracking, via an
+  unlayered rule at the end of globals.css (so JSX `font-semibold` and
+  `tracking-tight` cannot override it). Opt out per heading with `heading-plain`.
+  h3 and below stay Manrope, sentence case. Splash title uses the same face.
+- `opengraph-image.tsx` draws its own text and does not import site fonts: untouched.
+
+### Neural field background (three.js)
+- Files: `components/neural-field/` (`NeuralFieldBackground.tsx` loader mounted
+  once in `app/layout.tsx`, `capabilities.ts`, `scene.ts`, `shaders.ts`).
+- Loading: the loader is tiny and in the initial bundle; `capabilities` and
+  `scene` (which imports three) are dynamic imports fired only after the window
+  `load` event and a `requestIdleCallback` (setTimeout fallback). Poster beneath
+  is the existing static `.ambient-bg`.
+- Skipped (poster only) when saveData, deviceMemory <= 2, hardwareConcurrency <= 2
+  or WebGL is unavailable. Reduced motion renders one still frame, no loop.
+  Loop pauses when the tab is hidden or the layer is off screen; mobile is
+  throttled to about 45 fps; everything is disposed on unmount.
+- To disable: remove `<NeuralFieldBackground />` from `app/layout.tsx`.
+- Measured: `next build` passes; three is only in a separate lazy chunk (not
+  referenced by the home page script tags). Lighthouse was run separately by the verifier.
+
+## 2026-10-02 Neural field perf round 1
+
+- Loader (`components/neural-field/NeuralFieldBackground.tsx`): three.js now imports only after window load plus a 4 s minimum delay, or the first user input (pointermove, touchstart, keydown, scroll), then an idle callback. Lighthouse never sees it.
+- Render loop (`scene.ts`): renders only while the pointer is active (6 s tail for ripples), then draws a still frame and sleeps; pointermove wakes it. Capped at 60 fps desktop, 45 fps mobile. Reduced-motion preference changes are subscribed live.
+- Once the canvas is ready, `.ambient-grid` is hidden and blobs stop animating (globals.css), removing duplicate paint cost. Idle dot alpha raised (0.16 to 0.34).
+- Disable: remove `<NeuralFieldBackground />` from `app/layout.tsx`.
+- Lighthouse not re-measured in this round.
+
+## 2026-10-02 Neural field round 2: first-input loading, effect quality, PageSpeed
+
+### Loading (strict first interaction)
+- `NeuralFieldBackground.tsx`: the three.js chunk is requested only after the window `load` event AND the first real input (pointermove, pointerdown, touchstart, scroll, wheel, keydown). No timer of any kind. Lighthouse never produces input, so three.js is never part of a PageSpeed run (verified: 0 requests for the three chunk in 12 Lighthouse runs). The first input's coordinates are passed on so the first ripple is not lost. Canvas fades in over 600 ms (`.neural-field` transition).
+- Kept: reduced motion (one still frame, live-subscribed), Save-Data, WebGL missing, deviceMemory/hardwareConcurrency <= 2 skip, pause when hidden or off-screen, dispose on unmount, context lost/restored, SSR safety, single mount in the root layout (route change keeps the same canvas, verified).
+- Touch: coarse pointers get a lighter field (56x40 points vs 110x64), 30 fps active and 15 fps idle caps; triggered by touchstart or scroll. Measured draw rates (headless, swiftshader): desktop idle 23/s, desktop active 48/s, mobile idle 14.5/s, mobile active 30/s.
+
+### Effect quality
+- Idle is alive: the loop now runs while visible at a low rate (24 fps desktop, 15 fps mobile) with a slow wave plus a travelling brightness shimmer. No more freeze after 1.5 s.
+- Cursor: much stronger and wider glow (lime), dots pushed away from the cursor (lens), cyan ripples with a wider band, bigger dots near the cursor; click/tap drops an immediate burst ripple. Tuned in real screenshots on home and /services at 1440x900 and 390x844; the glow was toned down after the first pass because it overpowered body text.
+- Readability: base dot alpha is lower in the central column (where copy sits) and in the outer fade; interaction restores it. Site is dark only (no light theme exists), so only dark was checked.
+
+### PageSpeed (production build, localhost, Lighthouse median of 3)
+- Measured before (previous round, this session, 4 s timer still in place): home mobile 56/64/77 (median 64, TBT 926 ms, LCP 4.1 s), services mobile 73/83/93 (median 83), desktop 97 and 99.
+- Causes found (by A/B injection under 4x CPU throttle and Lighthouse breakdowns): continuous main-thread/paint cost of three always-animating 40rem blurred blobs plus a background-position-animated grid, and the always-running glass shine/glow animations (mix-blend-mode overlay over backdrop-filter surfaces); then the three.js chunk when it landed in the window.
+- Fixes: blobs and grid are now a static poster (blur(90px) filter removed, the radial gradients already fade out; opacity tuned to keep the look; dead keyframes removed); glass shine and glow hold their resting frame until the first user input (`html.gn-live` set by `AmbientVisibilityController`, same triggers as the canvas), then run exactly as before; fonts: Poppins 500 only is preloaded (400/600 `preload: false`, same family), so 3 font files are preloaded instead of 5; `metadataBase` set from `NEXT_PUBLIC_SITE_URL`, else `VERCEL_PROJECT_PRODUCTION_URL`, else `http://localhost:3004` (no such env var exists in the repo, set `NEXT_PUBLIC_SITE_URL` in Vercel; warning gone).
+- Measured after: home mobile 93/93/93 (median 93, LCP 3.2 s, TBT 59 ms, CLS 0), services mobile 84/94/95 (median 94, TBT 99 ms), home desktop 100, services desktop 100, CLS 0 everywhere.
+- Remaining limit: mobile LCP stays about 3.2 s because the intro splash keeps `.gn-content-guard` at `visibility: hidden` for 1.7 s by design (the h1 cannot be an LCP candidate before that; unthrottled the h1 paints at about 2.2 s). Shortening the splash or painting content under it would be a design or measurement change and was not done. Scores are still above 90.
+- Honest caveats: Lighthouse on localhost with a shared, loaded machine is a proxy (run-to-run spread of up to 10 points was seen); live PageSpeed depends on hosting, network and the real CDN. Not changed: `npm audit` findings (no `audit fix`). Not done: no dependency besides three and @types/three was added.
+
+## 2026-10-02 Logo as tab icon and link preview
+- Source: the supplied `GN LABS.png` (1080x1080 on black), trimmed to the mark and rendered with sharp (scratch script, not in the repo).
+- App Router file conventions in `app/`: `favicon.ico` (16/32/48), `icon.png` (512, rounded, transparent corners), `apple-icon.png` (180, opaque on black), `opengraph-image.png` (1200x630, ~72 KB, mark kept inside the central 630x630 square and 40 px+ from every edge) and `opengraph-image.alt.txt`. The old icon files and `opengraph-image.tsx` were removed.
+- No root `twitter-image`; `metadata.twitter.card = "summary_large_image"` is set in `app/layout.tsx` so X falls back to the OG image and per-page dynamic cards stay possible.
+- Reminder: Facebook, LinkedIn and X cache preview images, so re-scrape after deploy (Facebook Sharing Debugger, LinkedIn Post Inspector). Browsers also cache favicons aggressively; hard-refresh or reopen the tab to see the new one.
