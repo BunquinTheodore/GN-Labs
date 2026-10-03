@@ -23,8 +23,9 @@ const manrope = Manrope({
 
 // Poppins is the UI face. Only the 500 weight (nav links, buttons) is
 // preloaded; 400 and 600 load on demand so first paint fetches 3 font files
-// (Josefin 300, Manrope, Poppins 500) instead of 5. Both declarations share the
-// "Poppins" family name, so they merge into one family at runtime.
+// (Josefin 300, Manrope, Poppins 500) instead of 5. The 500 and the 400/600
+// declarations are separate next/font families that share the --font-poppins
+// variable, so the browser resolves 400/500/600 across both.
 const poppins = Poppins({
   variable: "--font-poppins",
   subsets: ["latin"],
@@ -36,6 +37,16 @@ const poppinsSecondary = Poppins({
   variable: "--font-poppins",
   subsets: ["latin"],
   weight: ["400", "600"],
+  display: "swap",
+  preload: false,
+});
+
+// Poppins 700 is only used by the /services step titles (.step-title), so it
+// gets its own family and variable and is never preloaded.
+const poppinsBold = Poppins({
+  variable: "--font-poppins-bold",
+  subsets: ["latin"],
+  weight: ["700"],
   display: "swap",
   preload: false,
 });
@@ -65,7 +76,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="en"
-      className={cn("h-full", "antialiased", josefin.variable, manrope.variable, poppins.variable, poppinsSecondary.variable, "font-sans")}
+      className={cn("h-full", "antialiased", josefin.variable, manrope.variable, poppins.variable, poppinsSecondary.variable, poppinsBold.variable, "font-sans")}
     >
       <body className="min-h-full bg-ink text-mist">
         <ClickSoundProvider />

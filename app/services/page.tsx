@@ -57,7 +57,7 @@ export default function ServicesPage() {
                     {item.step}
                   </span>
                   <div className="flex flex-col gap-1.5 pt-0.5 sm:pt-2">
-                    <h2 className="font-display text-lg font-semibold tracking-tight text-mist">
+                    <h2 className="step-title">
                       {item.title}
                     </h2>
                     <p className="text-sm text-mist-dim">{item.body}</p>

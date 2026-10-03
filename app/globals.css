@@ -632,6 +632,26 @@ h2.heading-plain {
   text-transform: none;
 }
 
+/* Process step titles on /services: Poppins 700 (real bold face, own
+   next/font declaration), caps kept, with a short lime accent bar. Higher
+   specificity than the unlayered h2:not(.heading-plain) rule. */
+h2.step-title:not(.heading-plain) {
+  font-family: var(--font-poppins-bold), ui-sans-serif, system-ui, sans-serif;
+  font-weight: 700;
+  font-size: 1.375rem;
+  letter-spacing: 0.06em;
+  color: var(--mist);
+}
+h2.step-title::after {
+  content: "";
+  display: block;
+  width: 24px;
+  height: 2px;
+  margin-top: 0.5rem;
+  border-radius: 1px;
+  background: var(--lime);
+}
+
 /* Interactive neural-field background. Sits above .ambient-bg (the static
    poster) and below page content. Fades in only once WebGL is running. */
 .neural-field {

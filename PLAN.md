@@ -233,6 +233,9 @@ default to any future visual work on this site.
 - Every `h1` and `h2` is Josefin 300, uppercase via CSS, 0.04em tracking, via an
   unlayered rule at the end of globals.css (so JSX `font-semibold` and
   `tracking-tight` cannot override it). Opt out per heading with `heading-plain`.
+  Exception: `h2.step-title` (the three /services process steps) is Poppins 700
+  caps, 0.06em tracking, with a lime bar, using its own non-preloaded next/font
+  face (`--font-poppins-bold`).
   h3 and below stay Manrope, sentence case. Splash title uses the same face.
 - `opengraph-image.tsx` draws its own text and does not import site fonts: untouched.
 
