@@ -55,7 +55,7 @@ function resolveSiteUrl(): URL {
 
 export const metadata: Metadata = {
   metadataBase: resolveSiteUrl(),
-  title: "GN Labs: AI Integration for Business",
+  title: "GN Labs | AI Integration for Business",
   description:
     "GN Labs helps teams design and ship practical AI integrations and automations. Book a consultation to scope your project.",
   twitter: { card: "summary_large_image" },
